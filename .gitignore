@@ -1,0 +1,25 @@
+# Never commit photos (progress photos stay on the phone only)
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.heif
+*.webp
+*.gif
+*.zip
+# Allow only the app icons
+!icons/*.png
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+secrets*
+.dev.vars
+
+# Local tooling / OS
+.claude/settings.local.json
+Thumbs.db
+desktop.ini
+.DS_Store

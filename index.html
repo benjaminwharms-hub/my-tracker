@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ben's Tracker</title>
+  <meta name="theme-color" content="#0f1b2d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    :root {
+      --bg: #0f1b2d; --card: #17263d; --text: #e8eef7; --muted: #9fb0c8; --accent: #4f9dff;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+    h1 { margin: 0 0 4px; font-size: 1.6rem; }
+    p { color: var(--muted); margin: 0 0 16px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .tile { background: var(--card); border-radius: var(--radius); padding: 12px; }
+    .tile b { display: block; font-size: 1.3rem; color: var(--accent); }
+    .tile span { color: var(--muted); font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Ben's Tracker</h1>
+    <p>Part 1 is live. The full dashboard arrives in Part 2.</p>
+    <div class="grid" id="targets"></div>
+    <p style="margin-top:16px" id="counts">Loading data…</p>
+  </main>
+  <script src="config.js"></script>
+  <script>
+    const t = CONFIG.targets;
+    const tiles = [
+      ["Calories", t.calories + " kcal"], ["Protein", t.protein + " g"],
+      ["Carbs", t.carbs + " g"], ["Fat", t.fat + " g"],
+      ["Fibre", t.fiber + " g"], ["Goal", CONFIG.goalWeight + " " + CONFIG.units]
+    ];
+    document.getElementById("targets").innerHTML =
+      tiles.map(([k, v]) => `<div class="tile"><span>${k}</span><b>${v}</b></div>`).join("");
+
+    const files = ["weights", "meals", "lifts", "pantry"];
+    Promise.all(files.map(f =>
+      fetch(`data/${f}.csv`, { cache: "no-store" }).then(r => r.text())
+        .then(txt => txt.trim().split("\n").length - 1)
+        .catch(() => "?")
+    )).then(n => {
+      document.getElementById("counts").textContent =
+        files.map((f, i) => `${f}: ${n[i]} rows`).join(" · ");
+    });
+  </script>
+</body>
+</html>
