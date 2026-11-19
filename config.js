@@ -14,5 +14,12 @@ const CONFIG = {
     fiber: 40,               // g / day
     sodium: 3000             // mg / day, soft cap
   },
+  // Status pill rules for each day (checked in this order):
+  status: {
+    underBy: 200,            // "Under"         if calories < target - 200 (the main bulk risk)
+    overBy: 300,             // "Over"          if calories > target + 300
+    lowProtein: 0.75,        // "Low protein"   if protein < 75% of target
+    proteinShort: 0.9        // "Protein short" if protein < 90% of target
+  },                         // otherwise       "On target"
   split: ["Push", "Pull", "Legs"]
 };
