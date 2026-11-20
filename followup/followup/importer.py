@@ -26,7 +26,8 @@ ALIASES = {
     "last_name": ["lastname", "last", "surname", "familyname"],
     "customer_email": ["customeremail", "email", "emailaddress", "clientemail", "contactemail"],
     "job_type": ["jobtype", "service", "project", "projecttype", "worktype", "jobdescription",
-                 "description", "type", "scope", "servicetype", "work", "job"],
+                 "description", "type", "scope", "servicetype", "work", "workdone", "workperformed",
+                 "servicesperformed", "job"],
     "job_address": ["jobaddress", "address", "siteaddress", "propertyaddress", "location", "street",
                     "streetaddress", "serviceaddress"],
     "completion_date": ["completiondate", "completed", "datecompleted", "completeddate", "finishdate",
@@ -36,7 +37,8 @@ ALIASES = {
 
 
 def _norm(header: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", str(header).lower())
+    """'Job #' -> 'jobnumber', 'E-mail Address' -> 'emailaddress'."""
+    return re.sub(r"[^a-z0-9]", "", str(header).lower().replace("#", "number"))
 
 
 def read_table(path: Path, sheet: str = None) -> tuple:

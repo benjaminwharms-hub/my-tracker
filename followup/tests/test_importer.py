@@ -80,6 +80,15 @@ def test_preview_changes_nothing(tmp_path, jobs_path):
     assert jobs_path.read_text() == before
 
 
+def test_job_number_is_an_id_not_a_job_type(tmp_path, jobs_path):
+    p = make_xlsx(tmp_path, [["Job #", "Client", "E-mail", "Work Done"], [2001, "Jane", "jane@example.com", "Roof"]])
+    report = import_file(p, jobs_path)
+    assert report["columns_matched"]["job_id"] == "Job #"
+    assert report["columns_matched"]["job_type"] == "Work Done"
+    row = load_jobs(jobs_path)[0][0]
+    assert row["job_id"] == "2001" and row["job_type"] == "Roof"
+
+
 def test_explicit_mapping():
     cols = match_columns(["Who", "Addr", "E"], {"customer_name": "Who", "customer_email": "E"})
     assert cols["customer_name"] == 0 and cols["customer_email"] == 2

@@ -153,6 +153,40 @@ A Mac runs it when it wakes from sleep, but not if it was fully shut down.
 In that case it runs the next day. Either way, `grace_days` (default 7)
 makes sure the late emails still go out.
 
+## 5a. Or: set up with Claude by pasting one prompt
+
+Instead of carrying the zip, you can have Claude do the whole install on the
+client's computer.
+
+**Once, on your computer**, after section 4:
+```bash
+python scripts/make_setup_prompt.py --alert-email you@yourbusiness.com
+```
+This writes `dist/claude_setup_prompt.txt`. It contains your Google app key
+and the link Claude downloads the program from (this repo's current branch on
+GitHub). Keep it private, and don't commit it: `dist/` is git-ignored.
+Regenerate it if you move the code to another branch or repo.
+
+**On the client's computer:**
+1. Install the Claude desktop app, sign in (any account with Claude Code,
+   including yours), and open the **Code** tab. Regular chat and Cowork can't
+   install programs on the computer itself.
+2. Pick the home folder as the working folder, and paste the whole prompt.
+3. Answer Claude's questions (business details), and approve the commands it
+   asks to run.
+4. When Claude says so, the **business owner signs in to Gmail** in the
+   browser and clicks Allow.
+5. Give Claude the **customer list** (Excel or CSV, any column names). Claude
+   previews the import, shows you how the columns were matched, and asks
+   whether recently completed customers should get the emails still due.
+6. Claude runs a dry run, shows you what would go out today, and summarises
+   the setup.
+
+The importer on its own: `python scripts/import_jobs.py --client <id> list.xlsx --preview`.
+By default, customers whose jobs are already complete are imported as `done`,
+so they get no emails. Add `--email-recent-past` to send them any email that's
+still due.
+
 ## 5b. Connect or reconnect a business's Gmail by hand
 
 ```bash
@@ -213,6 +247,9 @@ followup/client_setup.py   creates a client folder (used by the wizard)
 followup/scheduler.py      Windows Task Scheduler / Mac launchd daily run
 setup_wizard.py            the step-by-step setup on a client's computer
 installers/                Install (Windows).bat, Install (Mac).command, READ ME FIRST.txt
-scripts/                   connect_gmail.py, send_test_email.py, make_package.py
+followup/importer.py       imports a business's own Excel/CSV customer list
+prompts/                   the Claude setup prompt template
+scripts/                   connect_gmail.py, send_test_email.py, make_package.py,
+                           make_setup_prompt.py, import_jobs.py
 tests/                     python -m pytest
 ```
