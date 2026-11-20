@@ -1,0 +1,7 @@
+job_id,customer_name,customer_email,job_type,job_address,completion_date,status,followup_stage,notes
+J1001,Jane Smith,jane.smith@example.com,kitchen remodel,12 Oak St,2026-11-19,complete,,
+J1002,Marcus Lee,marcus.lee@example.com,deck build,48 Pine Ave,2026-11-13,complete,thank_you,
+J1003,Priya Patel,priya.patel@example.com,roof replacement,7 Birch Rd,2026-11-06,complete,check_in,
+J1004,Tom O'Brien,tom.obrien@example.com,bathroom renovation,301 Elm St,2026-08-22,complete,review_request,
+J1005,Ana Garcia,ana.garcia@example.com,basement finishing,9 Cedar Ln,,in progress,,
+J1006,Chris Wong,chris.wong@example.com,garage conversion,55 Maple Dr,,complete,,
