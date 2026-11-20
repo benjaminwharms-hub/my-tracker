@@ -95,22 +95,42 @@ def ask_business_details(existing=None) -> dict:
         print("\nPlease fix these and try again:\n  - " + "\n  - ".join(problems) + "\n")
 
 
-def make_desktop_shortcut(target) -> str:
-    """Put a "Follow-up Jobs" shortcut to jobs.csv on the desktop. Returns where, or "" if it failed."""
+def choose_business(clients: list):
+    """If businesses are already set up here, ask which one to update, or set up a new one."""
+    if not clients:
+        return None
+    print("Businesses already set up on this computer:")
+    for i, c in enumerate(clients, start=1):
+        print(f"  {i}) {c.business_name} ({c.from_email})")
+    print(f"  {len(clients) + 1}) Set up a NEW business")
+    while True:
+        choice = ask("Choose a number", str(len(clients) + 1))
+        if choice.isdigit() and 1 <= int(choice) <= len(clients) + 1:
+            return clients[int(choice) - 1] if int(choice) <= len(clients) else None
+        print("  (type one of the numbers above)")
+
+
+def make_desktop_shortcut(target, business_name: str = "") -> str:
+    """Put a "Follow-up Jobs" shortcut to jobs.csv on the desktop. Returns where, or "" if it failed.
+
+    With several businesses on one computer, each gets its own: "Follow-up Jobs - Smith Roofing".
+    """
+    label = "Follow-up Jobs" + (f" - {business_name}" if business_name else "")
+    label = "".join(ch for ch in label if ch not in '<>:"/\\|?*')  # characters not allowed in file names
     system = platform.system()
     try:
         if system == "Windows":
             ps = ("$d=[Environment]::GetFolderPath('Desktop'); "
-                  "$s=(New-Object -ComObject WScript.Shell).CreateShortcut(\"$d\\Follow-up Jobs.lnk\"); "
+                  "$s=(New-Object -ComObject WScript.Shell).CreateShortcut(\"$d\\{label}.lnk\"); "
                   f"$s.TargetPath={scheduler._ps_quote(target)}; $s.Save(); Write-Output $d")
             out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True,
                                  capture_output=True, text=True).stdout.strip()
-            return f"{out}\\Follow-up Jobs"
+            return f"{out}\\{label}"
         if system == "Darwin":
             script = (f'tell application "Finder" to make alias file to POSIX file "{target}" '
-                      f'at (path to desktop folder) with properties {{name:"Follow-up Jobs.csv"}}')
+                      f'at (path to desktop folder) with properties {{name:"{label}.csv"}}')
             subprocess.run(["osascript", "-e", script], check=True, capture_output=True)
-            return "Desktop/Follow-up Jobs.csv"
+            return f"Desktop/{label}.csv"
     except Exception:
         pass
     return ""
@@ -139,23 +159,34 @@ def main() -> int:
 
     # ---- Step 1: details
     step(1, "Business details")
-    existing_ids = list_clients()  # sample "example..." folders are left out
-    existing = load_config(existing_ids[0]) if existing_ids else None
+    # One computer can run several businesses (e.g. yours, running all your clients).
+    existing_clients = [load_config(c) for c in list_clients()]  # sample "example..." folders are left out
     if quiet:
         answers = json.loads(open(args.answers, encoding="utf-8").read())
         answers = {k: str(v) for k, v in answers.items() if v is not None}
         answers.setdefault("from_name", answers.get("business_name", ""))
         answers.setdefault("timezone", detect_timezone())
         answers.setdefault("signature", f"{answers['from_name']}\n{answers.get('business_name', '')}")
+        # Same Gmail as a business already set up here = an update of that business; otherwise a new one.
+        existing = next((c for c in existing_clients
+                         if c.from_email.lower() == answers.get("from_email", "").strip().lower()), None)
         if existing:
             answers["client_id"] = existing.client_id  # update the same business, keep its data
+        elif make_client_id(answers.get("business_name", "")) in {c.client_id for c in existing_clients}:
+            print("A different business with the same name is already set up here. Use a slightly "
+                  "different business_name (e.g. add the town).")
+            return 1
         problems = check_answers(answers)
         if problems:
             print("Problems with the answers file:\n  - " + "\n  - ".join(problems))
             return 1
         print(f"Using answers from {args.answers}")
+    else:
+        existing = choose_business(existing_clients)
+    if quiet:
+        pass
     elif existing:
-        print(f"Already set up for: {existing.business_name}.")
+        print(f"Updating: {existing.business_name}.")
         if not yes("Change the business details?", default=False):
             answers = None
         else:
@@ -228,7 +259,7 @@ def main() -> int:
 
     # ---- Step 6: shortcut
     step(6, "Desktop shortcut")
-    where = make_desktop_shortcut(cfg.jobs_path)
+    where = make_desktop_shortcut(cfg.jobs_path, cfg.business_name if len(list_clients()) > 1 else "")
     print(f"Shortcut created: {where}" if where else f"Open the jobs list here: {cfg.jobs_path}")
 
     print(f"""

@@ -173,7 +173,7 @@ def test_wizard_end_to_end(tmp_path, monkeypatch):
     scheduled = {}
     monkeypatch.setattr(scheduler, "install", lambda h, m: scheduled.update(h=h, m=m) or "fake schedule")
     monkeypatch.setattr(scheduler, "run_now", lambda: None)
-    monkeypatch.setattr(setup_wizard, "make_desktop_shortcut", lambda target: "Desktop/Follow-up Jobs")
+    monkeypatch.setattr(setup_wizard, "make_desktop_shortcut", lambda *a: "Desktop/Follow-up Jobs")
     monkeypatch.setattr("sys.argv", ["setup_wizard.py"])
 
     typed = iter([
@@ -217,7 +217,7 @@ def _fake_everything(monkeypatch, tmp_path):
     scheduled = {}
     monkeypatch.setattr(scheduler, "install", lambda h, m: scheduled.update(h=h, m=m) or "fake schedule")
     monkeypatch.setattr(scheduler, "run_now", lambda: None)
-    monkeypatch.setattr(setup_wizard, "make_desktop_shortcut", lambda target: "Desktop/Follow-up Jobs")
+    monkeypatch.setattr(setup_wizard, "make_desktop_shortcut", lambda *a: "Desktop/Follow-up Jobs")
     return setup_wizard, sender, scheduled
 
 
@@ -271,3 +271,40 @@ def test_setup_prompt_rejects_web_client():
     from scripts import make_setup_prompt
     with pytest.raises(ValueError, match="Desktop app"):
         make_setup_prompt.build_prompt({"web": {}}, "me@example.com", "x")
+
+
+def test_several_businesses_on_one_computer(tmp_path, monkeypatch):
+    """Running the wizard for a second business must create a second folder, not overwrite the first."""
+    setup_wizard, sender, _ = _fake_everything(monkeypatch, tmp_path)
+    monkeypatch.setattr("builtins.input", lambda prompt="": (_ for _ in ()).throw(AssertionError(prompt)))
+    for biz, email in [("Smith Roofing", "dave@example.com"), ("Oak Decks", "oak@example.com")]:
+        answers = tmp_path / f"{email}.json"
+        answers.write_text(json.dumps({**ANSWERS, "business_name": biz, "from_email": email}))
+        monkeypatch.setattr("sys.argv", ["setup_wizard.py", "--answers", str(answers)])
+        assert setup_wizard.main() == 0
+    from followup.config import list_clients, load_config as load
+    assert list_clients(tmp_path) == ["oak_decks", "smith_roofing"]
+    assert load("smith_roofing", tmp_path).from_email == "dave@example.com"
+
+    # Same Gmail again = update that business (new phone), still two folders.
+    answers.write_text(json.dumps({**ANSWERS, "business_name": "Oak Decks", "from_email": "oak@example.com",
+                                   "phone": "555-7777"}))
+    assert setup_wizard.main() == 0
+    assert list_clients(tmp_path) == ["oak_decks", "smith_roofing"]
+    assert load("oak_decks", tmp_path).phone == "555-7777"
+
+
+def test_new_business_cannot_take_over_same_named_folder(tmp_path):
+    create_client(ANSWERS, clients_dir=tmp_path)
+    with pytest.raises(ValueError, match="different business"):
+        create_client({**ANSWERS, "from_email": "other@example.com"}, clients_dir=tmp_path)
+
+
+def test_choose_business_menu(monkeypatch):
+    import setup_wizard
+    clients = [load_config("example_builder")]
+    typed = iter(["2"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(typed))
+    assert setup_wizard.choose_business(clients) is None  # 2 = new business
+    typed = iter(["1"])
+    assert setup_wizard.choose_business(clients).client_id == "example_builder"

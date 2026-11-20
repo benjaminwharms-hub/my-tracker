@@ -100,9 +100,17 @@ def create_client(answers: dict, clients_dir: Path = None, overwrite_config: boo
     clients_dir = clients_dir or config.CLIENTS_DIR  # looked up now, not when Python loaded this file
     client_id = answers.get("client_id") or make_client_id(answers["business_name"])
     folder = clients_dir / client_id
+    config_path = folder / "config.yaml"
+
+    # Never let a NEW business take over another business's folder (same name, different Gmail).
+    if not answers.get("client_id") and config_path.exists():
+        import yaml
+        current = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        if str(current.get("from_email", "")).lower() != answers["from_email"].strip().lower():
+            raise ValueError(f"A different business ({current.get('business_name')}) already uses the folder "
+                             f"'{client_id}'. Use a slightly different business name (e.g. add the town).")
     folder.mkdir(parents=True, exist_ok=True)
 
-    config_path = folder / "config.yaml"
     if overwrite_config or not config_path.exists():
         values = {k: answers.get(k, "") for k in
                   ("business_name", "from_name", "from_email", "review_link", "phone",
