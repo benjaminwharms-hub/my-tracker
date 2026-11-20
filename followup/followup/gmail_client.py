@@ -95,6 +95,37 @@ def connected_address(service) -> str:
     return service.users().getProfile(userId="me").execute(num_retries=3)["emailAddress"].lower()
 
 
+def sign_in(cfg, open_browser: bool = True) -> str:
+    """Open Google's sign-in page, and save the token if the right account signed in.
+
+    Used by scripts/connect_gmail.py and the setup wizard. Returns the connected address.
+    """
+    from google_auth_oauthlib.flow import InstalledAppFlow
+
+    if not CLIENT_SECRET_FILE.exists():
+        raise GmailNotConnected(f"Missing {CLIENT_SECRET_FILE}. Create an OAuth client in "
+                                f"Google Cloud first (see README, section 4).")
+    flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRET_FILE), SCOPES)
+    # access_type=offline + prompt=consent make Google return a long-lived "refresh token",
+    # so the daily run keeps working without anyone signing in again.
+    creds = flow.run_local_server(port=0, open_browser=open_browser, access_type="offline",
+                                  prompt="consent", login_hint=cfg.from_email)
+
+    actual = connected_address(build_service(creds))
+    if actual != cfg.from_email.lower():
+        raise GmailNotConnected(f"You signed in as {actual}, but the business's email is set to "
+                                f"{cfg.from_email}. Nothing was saved. Sign in with the right account.")
+
+    path = token_path(cfg.client_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(creds.to_json(), encoding="utf-8")
+    try:
+        path.chmod(0o600)  # only this user account can read it (no effect on Windows)
+    except OSError:
+        pass
+    return actual
+
+
 def connect(cfg, service=None):
     """Return (sender, inbox) for a client's Gmail. Called by run.py for real runs.
 

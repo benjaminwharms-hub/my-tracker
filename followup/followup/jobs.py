@@ -80,6 +80,10 @@ def save_jobs(path: Path, rows: list, columns: list) -> None:
             writer.writeheader()
             writer.writerows(rows)
         os.replace(tmp, path)
+    except PermissionError:
+        os.unlink(tmp)
+        raise PermissionError(f"Couldn't save {path.name}: is it open in Excel? Close it. Emails already "
+                              f"sent are recorded in the send log and won't be sent again.")
     except BaseException:
         os.unlink(tmp)
         raise
@@ -92,7 +96,7 @@ def is_complete(row: dict) -> bool:
 def parse_date(text: str) -> date:
     """Accept 2026-11-20 or 11/20/2026. Raises ValueError for anything else."""
     text = text.strip()
-    for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):  # Excel often saves 11/20/26
         try:
             return datetime.strptime(text, fmt).date()
         except ValueError:

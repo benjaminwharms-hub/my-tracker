@@ -1,5 +1,6 @@
 PyYAML>=6.0
 tzdata>=2024.1            # timezone data (needed on Windows)
+tzlocal>=5.0              # detects the computer's timezone in the setup wizard
 google-api-python-client>=2.100
 google-auth>=2.23
 google-auth-oauthlib>=1.1

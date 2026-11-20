@@ -107,7 +107,53 @@ with their own Gmail.
 
 Push the app to production under *Audience → Publish app* once your own test works.
 
-## 5. Connect a business's Gmail (once per client)
+## 5. Install on a client's computer (the easy way)
+
+This is the normal way to set up a client. Do section 4 once first, so that
+`secrets/client_secret.json` exists.
+
+1. **Build the package** on your computer:
+   ```bash
+   python scripts/make_package.py
+   ```
+   This creates `dist/FollowupEmails-installer.zip`. It contains the program,
+   the starter email templates and your `client_secret.json`. It never contains
+   tests, other clients' data or Gmail tokens.
+2. **Add the business's Gmail as a test user** in Google Cloud, while your app
+   is in Testing mode (section 4).
+3. **On the client's computer**: copy the zip over, unzip it, and double-click
+   - Windows: `Install (Windows).bat`. If you see "Windows protected your PC",
+     click *More info → Run anyway*.
+   - Mac: `Install (Mac).command`. If it "can't be opened", right-click it →
+     *Open* → *Open*.
+4. **Answer the wizard's questions.** It will:
+   1. ask for the business details (name, Gmail, review link, phone, signature,
+      and your email for problem alerts)
+   2. create the business's folder in `~/FollowupEmails/clients/`
+   3. open Google sign-in. The business signs in and clicks Allow.
+   4. send a test email
+   5. schedule the daily run (default 09:00)
+   6. put a **Follow-up Jobs** shortcut to `jobs.csv` on the desktop
+
+The installer installs Python first if it's missing. On Windows it does this
+automatically; on a Mac it opens the python.org download page.
+
+After install:
+- Each day's output is added to `~/FollowupEmails/logs/daily.log`.
+- If a run has problems, the system emails a warning to `alert_email`. The one
+  exception: if Gmail itself is disconnected, no email can be sent, so the
+  problem only shows in the log.
+- **Updating** to a new version: build a new package and run the installer
+  again. Settings, templates, the jobs list and the Gmail connection are kept.
+- **Removing** the schedule: `python setup_wizard.py --uninstall` (from the
+  `FollowupEmails` folder, using `.venv`'s Python).
+
+Missed days: Windows runs a missed task as soon as the computer is back on.
+A Mac runs it when it wakes from sleep, but not if it was fully shut down.
+In that case it runs the next day. Either way, `grace_days` (default 7)
+makes sure the late emails still go out.
+
+## 5b. Connect or reconnect a business's Gmail by hand
 
 ```bash
 python scripts/connect_gmail.py --client smith_roofing
@@ -163,6 +209,10 @@ followup/templates.py      fills placeholders, adds signature and unsubscribe li
 followup/log.py            send_log.csv and unsubscribed.csv
 followup/sender.py         dry-run printer (and the sender/inbox interface)
 followup/gmail_client.py   OAuth, sending, reply/STOP detection
-scripts/                   connect_gmail.py, send_test_email.py
+followup/client_setup.py   creates a client folder (used by the wizard)
+followup/scheduler.py      Windows Task Scheduler / Mac launchd daily run
+setup_wizard.py            the step-by-step setup on a client's computer
+installers/                Install (Windows).bat, Install (Mac).command, READ ME FIRST.txt
+scripts/                   connect_gmail.py, send_test_email.py, make_package.py
 tests/                     python -m pytest
 ```

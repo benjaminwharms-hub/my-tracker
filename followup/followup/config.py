@@ -60,6 +60,8 @@ class ClientConfig:
     # "job":   never send the same stage twice for the same job. Repeat
     #          customers then get a fresh sequence for each new job.
     dedupe_by: str = "email"
+    # Where to email a warning if a daily run has errors (usually you, the operator).
+    alert_email: str = ""
     jobs_file: str = "jobs.csv"
     log_file: str = "send_log.csv"
     unsubscribe_file: str = "unsubscribed.csv"
@@ -121,7 +123,7 @@ def load_config(client_id: str, clients_dir: Path = CLIENTS_DIR) -> ClientConfig
     # Pull out the known settings; anything else goes into `extra`.
     known = {
         "business_name", "from_name", "from_email", "review_link", "timezone", "stages",
-        "phone", "website", "signature", "grace_days", "dedupe_by",
+        "phone", "website", "signature", "grace_days", "dedupe_by", "alert_email",
         "jobs_file", "log_file", "unsubscribe_file",
     }
     extra = {k: v for k, v in raw.items() if k not in known}
@@ -140,6 +142,7 @@ def load_config(client_id: str, clients_dir: Path = CLIENTS_DIR) -> ClientConfig
         signature=str(raw.get("signature", "")).strip(),
         grace_days=int(raw.get("grace_days", 7)),
         dedupe_by=dedupe_by,
+        alert_email=str(raw.get("alert_email", "") or ""),
         jobs_file=raw.get("jobs_file", "jobs.csv"),
         log_file=raw.get("log_file", "send_log.csv"),
         unsubscribe_file=raw.get("unsubscribe_file", "unsubscribed.csv"),
