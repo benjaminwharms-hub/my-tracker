@@ -25,6 +25,8 @@ def main(argv=None) -> int:
     who.add_argument("--all", action="store_true", help="run every client in clients/")
     parser.add_argument("--dry-run", action="store_true", help="print emails instead of sending; change no files")
     parser.add_argument("--today", help="pretend today is this date (YYYY-MM-DD); for testing")
+    parser.add_argument("--live-inbox", action="store_true",
+                        help="with --dry-run: still check the real Gmail inbox for replies/STOP (read-only)")
     args = parser.parse_args(argv)
 
     client_ids = list_clients() if args.all else args.client
@@ -36,11 +38,13 @@ def main(argv=None) -> int:
             cfg = load_config(client_id)
             # "Today" is in the business's own timezone, not the server's.
             today = date.fromisoformat(args.today) if args.today else datetime.now(cfg.tz).date()
-            if args.dry_run:
+            if args.dry_run and not args.live_inbox:
                 sender, inbox = DryRunSender(), NoInbox()
             else:
-                from followup.gmail_client import connect  # only needed for real sending
+                from followup.gmail_client import connect  # only needed when Gmail is used
                 sender, inbox = connect(cfg)
+                if args.dry_run:  # --live-inbox: read replies from Gmail, but only PRINT emails
+                    sender = DryRunSender()
             summary = run_client(cfg, today, sender, inbox, dry_run=args.dry_run)
         except Exception as e:  # e.g. bad config or Gmail not connected: skip this client, carry on
             had_errors = True
