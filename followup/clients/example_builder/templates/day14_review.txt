@@ -1,0 +1,10 @@
+Subject: A quick favour, {first_name}?
+
+Hi {first_name},
+
+We hope you're enjoying your new {job_type}. As a local business, we rely on word of mouth, and a short Google review makes a real difference to us.
+
+If you have two minutes, you can leave one here:
+{review_link}
+
+Thank you, we really appreciate it.

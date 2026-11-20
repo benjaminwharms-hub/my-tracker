@@ -1,0 +1,39 @@
+# Settings for one client business. Copy this whole folder to add a new client.
+# Lines starting with # are comments and are ignored.
+
+business_name: Example Builders
+from_name: Sam at Example Builders      # the name customers see in their inbox
+from_email: office@example.com          # must be the Gmail account you connect
+review_link: https://g.page/r/EXAMPLE/review
+phone: (555) 010-0199
+website: https://example.com
+timezone: America/Chicago               # decides what "today" means for this business
+
+# Added to the bottom of every email.
+signature: |
+  Sam Rivera
+  Example Builders
+  (555) 010-0199
+
+# How many days late an email may still go out (e.g. a job entered late).
+grace_days: 7
+
+# "email" = never send the same stage twice to the same address.
+# "job"   = never send the same stage twice for the same job (repeat customers get a new sequence).
+dedupe_by: email
+
+# The email sequence. "day" counts from the job's completion date.
+# "template" is a file in this client's templates/ folder.
+stages:
+  - name: thank_you
+    day: 1
+    template: day1_thanks.txt
+  - name: check_in
+    day: 7
+    template: day7_checkin.txt
+  - name: review_request
+    day: 14
+    template: day14_review.txt
+  - name: referral
+    day: 90
+    template: day90_referral.txt

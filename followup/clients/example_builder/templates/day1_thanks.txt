@@ -1,0 +1,7 @@
+Subject: Thank you for choosing {business_name}, {first_name}
+
+Hi {first_name},
+
+Thank you for trusting us with your {job_type} at {job_address}. It was a pleasure working with you, and we hope you're enjoying the finished result.
+
+If anything comes up as you settle in, just reply to this email or call us at {phone}. We're happy to help.
