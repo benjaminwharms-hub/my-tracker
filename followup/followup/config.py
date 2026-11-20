@@ -89,9 +89,15 @@ class ClientConfig:
         return ZoneInfo(self.timezone)
 
 
-def list_clients(clients_dir: Path = CLIENTS_DIR) -> list:
-    """Return the IDs of all client folders that contain a config.yaml."""
-    return sorted(p.parent.name for p in clients_dir.glob("*/config.yaml"))
+def list_clients(clients_dir: Path = None, include_examples: bool = False) -> list:
+    """Return the IDs of all client folders that contain a config.yaml.
+
+    Folders whose name starts with "example" (sample data) are left out unless
+    include_examples=True. That way "run.py --all" never tries to email from them.
+    """
+    clients_dir = clients_dir or CLIENTS_DIR
+    ids = sorted(p.parent.name for p in clients_dir.glob("*/config.yaml"))
+    return ids if include_examples else [c for c in ids if not c.startswith("example")]
 
 
 def load_config(client_id: str, clients_dir: Path = CLIENTS_DIR) -> ClientConfig:
@@ -99,7 +105,7 @@ def load_config(client_id: str, clients_dir: Path = CLIENTS_DIR) -> ClientConfig
     folder = clients_dir / client_id
     path = folder / "config.yaml"
     if not path.exists():
-        raise ConfigError(f"No config found at {path}. Known clients: {list_clients(clients_dir)}")
+        raise ConfigError(f"No config found at {path}. Known clients: {list_clients(clients_dir, include_examples=True)}")
 
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}

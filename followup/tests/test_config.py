@@ -14,7 +14,8 @@ def test_example_client_loads():
     assert [s.name for s in cfg.stages] == ["thank_you", "check_in", "review_request", "referral"]
     assert [s.day for s in cfg.stages] == [1, 7, 14, 90]
     assert cfg.jobs_path.name == "jobs.csv"
-    assert "example_builder" in list_clients()
+    assert "example_builder" in list_clients(include_examples=True)
+    assert "example_builder" not in list_clients()  # never part of "run.py --all"
 
 
 def make_client(tmp_path: Path, config_text: str) -> Path:

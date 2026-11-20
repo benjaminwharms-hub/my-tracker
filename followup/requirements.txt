@@ -5,3 +5,4 @@ google-api-python-client>=2.100
 google-auth>=2.23
 google-auth-oauthlib>=1.1
 pytest>=8.0               # for running the tests
+openpyxl>=3.1               # reads Excel customer lists

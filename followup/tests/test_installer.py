@@ -1,5 +1,6 @@
 """Tests for the installer pieces: client setup, scheduler files, packaging, alerts."""
 
+import json
 import plistlib
 import zipfile
 from pathlib import Path
@@ -189,3 +190,84 @@ def test_wizard_end_to_end(tmp_path, monkeypatch):
     assert cfg.from_name == "Smith Roofing" and cfg.signature == "Dave Smith"
     assert sender.sent[0].to == "me@example.com" and sender.sent[0].subject.startswith("[TEST]")
     assert scheduled == {"h": 7, "m": 45}
+
+
+def _fake_everything(monkeypatch, tmp_path):
+    """Shared set-up for wizard tests: temp clients folder, fake Gmail, fake scheduler."""
+    import setup_wizard
+    from followup import client_setup, config, gmail_client
+
+    monkeypatch.setattr(config, "CLIENTS_DIR", tmp_path)
+    monkeypatch.setattr(setup_wizard, "CLIENTS_DIR", tmp_path)
+    monkeypatch.setattr(setup_wizard, "list_clients", lambda: config.list_clients(tmp_path))
+    monkeypatch.setattr(setup_wizard, "load_config", lambda cid: config.load_config(cid, tmp_path))
+    secret = tmp_path / "client_secret.json"
+    secret.write_text("{}")
+    monkeypatch.setattr(gmail_client, "CLIENT_SECRET_FILE", secret)
+    sender = RecordingSender()
+    state = {"signed_in": False}
+
+    def fake_connect(cfg):
+        if not state["signed_in"]:
+            raise gmail_client.GmailNotConnected("no token")
+        return sender, None
+
+    monkeypatch.setattr(gmail_client, "connect", fake_connect)
+    monkeypatch.setattr(gmail_client, "sign_in", lambda cfg, open_browser=True: state.update(signed_in=True) or cfg.from_email)
+    scheduled = {}
+    monkeypatch.setattr(scheduler, "install", lambda h, m: scheduled.update(h=h, m=m) or "fake schedule")
+    monkeypatch.setattr(scheduler, "run_now", lambda: None)
+    monkeypatch.setattr(setup_wizard, "make_desktop_shortcut", lambda target: "Desktop/Follow-up Jobs")
+    return setup_wizard, sender, scheduled
+
+
+def test_wizard_no_questions_mode(tmp_path, monkeypatch):
+    setup_wizard, sender, scheduled = _fake_everything(monkeypatch, tmp_path)
+    answers = tmp_path / "business.json"
+    answers.write_text(json.dumps({**ANSWERS, "signature": "Dave\nSmith Roofing"}))
+    monkeypatch.setattr("sys.argv", ["setup_wizard.py", "--answers", str(answers),
+                                     "--test-to", "me@example.com", "--time", "08:15"])
+
+    def no_typing(prompt=""):
+        raise AssertionError(f"asked a question in no-questions mode: {prompt}")
+    monkeypatch.setattr("builtins.input", no_typing)
+
+    assert setup_wizard.main() == 0
+    from followup.config import load_config as load
+    cfg = load("smith_sons_roofing_llc", tmp_path)
+    assert cfg.signature == "Dave\nSmith Roofing"
+    assert sender.sent[0].to == "me@example.com"
+    assert scheduled == {"h": 8, "m": 15}
+
+    # Running it again (an update) keeps the same client folder and its jobs list.
+    (tmp_path / "smith_sons_roofing_llc" / "jobs.csv").write_text("keep me")
+    assert setup_wizard.main() == 0
+    assert (tmp_path / "smith_sons_roofing_llc" / "jobs.csv").read_text() == "keep me"
+    assert [p.name for p in tmp_path.iterdir() if p.is_dir()] == ["smith_sons_roofing_llc"]
+
+
+def test_wizard_no_questions_bad_answers(tmp_path, monkeypatch, capsys):
+    setup_wizard, _, _ = _fake_everything(monkeypatch, tmp_path)
+    answers = tmp_path / "business.json"
+    answers.write_text(json.dumps({**ANSWERS, "from_email": "dave@"}))
+    monkeypatch.setattr("sys.argv", ["setup_wizard.py", "--answers", str(answers)])
+    assert setup_wizard.main() == 1
+    assert "from_email" in capsys.readouterr().out
+
+
+def test_setup_prompt_is_filled_in():
+    from scripts import make_setup_prompt
+    secret = {"installed": {"client_id": "abc.apps.googleusercontent.com", "client_secret": "s3"}}
+    text = make_setup_prompt.build_prompt(secret, "me@example.com", "https://example.com/code.zip")
+    assert "{{" not in text
+    assert '"client_id":"abc.apps.googleusercontent.com"' in text
+    assert "https://example.com/code.zip" in text and "me@example.com" in text
+    # The important guard rails are in the prompt.
+    assert "Never send any email to a customer during setup" in text
+    assert "--preview" in text and "--dry-run" in text
+
+
+def test_setup_prompt_rejects_web_client():
+    from scripts import make_setup_prompt
+    with pytest.raises(ValueError, match="Desktop app"):
+        make_setup_prompt.build_prompt({"web": {}}, "me@example.com", "x")

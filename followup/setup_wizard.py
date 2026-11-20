@@ -6,6 +6,11 @@ You don't normally run this by hand. "Install (Windows).bat" and
     python setup_wizard.py              # set up (or update) the business
     python setup_wizard.py --uninstall  # remove the daily schedule
 
+No-questions mode (used when Claude does the setup for you):
+    python setup_wizard.py --answers business.json --test-to you@example.com --time 09:00
+business.json holds the step 1 answers: business_name, from_email, from_name,
+review_link, phone, website, timezone, signature, alert_email.
+
 Steps:
   1. Ask for the business details
   2. Create the business's folder (config, email templates, empty jobs list)
@@ -16,6 +21,7 @@ Steps:
 """
 
 import argparse
+import json
 import platform
 import subprocess
 import sys
@@ -113,7 +119,11 @@ def make_desktop_shortcut(target) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Set up automated follow-up emails on this computer.")
     parser.add_argument("--uninstall", action="store_true", help="remove the daily schedule")
+    parser.add_argument("--answers", help="JSON file with the business details: asks no questions at all")
+    parser.add_argument("--test-to", help="with --answers: send the test email here (default: no test email)")
+    parser.add_argument("--time", default="09:00", help="with --answers: daily run time, HH:MM (default 09:00)")
     args = parser.parse_args()
+    quiet = bool(args.answers)  # no-questions mode
 
     if args.uninstall:
         print(scheduler.uninstall())
@@ -129,9 +139,22 @@ def main() -> int:
 
     # ---- Step 1: details
     step(1, "Business details")
-    existing_ids = [c for c in list_clients() if c != "example_builder"]
+    existing_ids = list_clients()  # sample "example..." folders are left out
     existing = load_config(existing_ids[0]) if existing_ids else None
-    if existing:
+    if quiet:
+        answers = json.loads(open(args.answers, encoding="utf-8").read())
+        answers = {k: str(v) for k, v in answers.items() if v is not None}
+        answers.setdefault("from_name", answers.get("business_name", ""))
+        answers.setdefault("timezone", detect_timezone())
+        answers.setdefault("signature", f"{answers['from_name']}\n{answers.get('business_name', '')}")
+        if existing:
+            answers["client_id"] = existing.client_id  # update the same business, keep its data
+        problems = check_answers(answers)
+        if problems:
+            print("Problems with the answers file:\n  - " + "\n  - ".join(problems))
+            return 1
+        print(f"Using answers from {args.answers}")
+    elif existing:
         print(f"Already set up for: {existing.business_name}.")
         if not yes("Change the business details?", default=False):
             answers = None
@@ -164,24 +187,25 @@ def main() -> int:
         print(f"Gmail is already connected ({cfg.from_email}).")
     except Exception:
         pass
-    if not already_ok or yes("Reconnect Gmail anyway?", default=False):
+    if not already_ok or (not quiet and yes("Reconnect Gmail anyway?", default=False)):
         print(f"A browser window will open. Sign in as {cfg.from_email} and click Allow.")
         print("If Google says 'Google hasn't verified this app', click Advanced, then 'Go to ...'.")
-        input("Press Enter to open the browser...")
+        if not quiet:
+            input("Press Enter to open the browser...")
         while True:
             try:
-                print(f"Connected: {sign_in(cfg)}")
+                print(f"Connected: {sign_in(cfg)}", flush=True)
                 break
             except GmailNotConnected as e:
                 print(f"\n  ! {e}")
-                if not yes("Try again?"):
+                if quiet or not yes("Try again?"):
                     print("Setup stopped. Run the installer again when ready.")
                     return 1
 
     # ---- Step 4: test email
     step(4, "Test email")
-    if yes("Send a test email to check how it looks?"):
-        to = ask("Send it to", cfg.alert_email or cfg.from_email)
+    if (args.test_to if quiet else yes("Send a test email to check how it looks?")):
+        to = args.test_to if quiet else ask("Send it to", cfg.alert_email or cfg.from_email)
         from followup.templates import build_email
         sender, _ = connect(cfg)
         test_row = {"customer_name": "Test Customer", "customer_email": to,
@@ -193,7 +217,7 @@ def main() -> int:
 
     # ---- Step 5: schedule
     step(5, "Schedule the daily run")
-    time_text = ask("What time should it run each day? (24-hour, HH:MM)", "09:00")
+    time_text = args.time if quiet else ask("What time should it run each day? (24-hour, HH:MM)", "09:00")
     try:
         hour, minute = (int(x) for x in time_text.split(":"))
         print(f"Scheduled: {scheduler.install(hour, minute)}")
