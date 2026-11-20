@@ -121,7 +121,7 @@ def make_desktop_shortcut(target, business_name: str = "") -> str:
     try:
         if system == "Windows":
             ps = ("$d=[Environment]::GetFolderPath('Desktop'); "
-                  "$s=(New-Object -ComObject WScript.Shell).CreateShortcut(\"$d\\{label}.lnk\"); "
+                  f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut(\"$d\\{label}.lnk\"); "
                   f"$s.TargetPath={scheduler._ps_quote(target)}; $s.Save(); Write-Output $d")
             out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True,
                                  capture_output=True, text=True).stdout.strip()
